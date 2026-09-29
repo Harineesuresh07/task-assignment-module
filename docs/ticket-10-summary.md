@@ -219,7 +219,7 @@ This follows the exact same pattern as the existing providers:
 | # | Subtask | Status |
 |---|---------|--------|
 | 1 | Schema + migration + permissions | **Done** (this commit) |
-| 2 | Create & distribute task (API) | Not started |
+| 2 | Create & distribute task (API) | **Done** |
 | 3 | Edit task (API) | Not started |
 | 4 | Trainer task list & details (API) | Not started |
 | 5 | Change deadline (API) | Not started |
@@ -229,6 +229,89 @@ This follows the exact same pattern as the existing providers:
 | 9 | Interested + manual add (API) | Not started |
 | 10 | Marks — set/change/export (API) | Not started |
 | 11 | Risk engine query + notification seam | Not started |
+
+---
+
+## Subtask 2: Create & Distribute Task (API)
+
+### Files Changed
+
+| File | Change Type | Description |
+|------|-------------|-------------|
+| `backend-api/src/validators/tasks.validator.ts` | New | Joi schema for `POST /api/tasks` — cross-field validation for isInternal↔maxMarks, deadlineType↔deadline↔deadlineNote |
+| `backend-api/src/services/tasks.service.ts` | New | `createTask()` — batch validation, scope-based auth, atomic transaction (Task + TaskBatch + TaskSubmission), initial deadline audit |
+| `backend-api/src/controllers/tasks.controller.ts` | New | `createTaskHandler()` — extracts scope and userId from request, delegates to service |
+| `backend-api/src/routes/tasks.routes.ts` | New | `POST /` with requirePermission + resolveScope + validate + handler chain |
+| `backend-api/src/server.ts` | Modified | Added `import taskRoutes` and `app.use('/api/tasks', authenticateJwt, taskRoutes)` |
+
+### Endpoint
+
+**`POST /api/tasks`** — Create a task and distribute to batches
+
+**Auth:** JWT required → `requirePermission('tasks:create:batch', 'tasks:create:any')` → `resolveScope('tasks')`
+
+**Request body:**
+```json
+{
+  "title": "Complete Chapter 5 Exercises",
+  "description": "Practice problems from the textbook",
+  "batchIds": ["uuid-1", "uuid-2"],
+  "isMandatory": true,
+  "isInternal": false,
+  "deadlineType": "FIXED",
+  "deadline": "2026-10-05T23:59:00.000Z"
+}
+```
+
+**Validation rules (Joi + custom):**
+- `title`: required, non-empty string
+- `batchIds`: required array of UUIDs, min 1
+- `isMandatory`: optional boolean, defaults `true`
+- `isInternal`: optional boolean, defaults `false`
+- `maxMarks`: required & positive when `isInternal=true`; rejected otherwise
+- `deadlineType`: optional enum (`FIXED`, `TENTATIVE`, `TBD`, `NONE`), defaults `NONE`
+- `deadline`: required ISO datetime (must be future) when `deadlineType=FIXED`; rejected otherwise
+- `deadlineNote`: optional string, allowed only when deadlineType is `TENTATIVE` or `TBD`
+
+**Service logic:**
+1. Validate all batchIds exist (404 if any missing)
+2. If scope is `batch` (trainer), check BatchTrainer for every batchId (403 if unauthorized)
+3. In a single Prisma `$transaction`:
+   - Create Task with TaskBatch join rows
+   - If `deadlineType !== NONE`: create initial TaskDeadlineChange audit entry (old=NONE → new=chosen type)
+   - If `isMandatory`: bulk-create TaskSubmission rows for all students in target batches (deduplicated across batches)
+4. Return full task with batches, submissions, and submissionCount
+
+**Response (201):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "task-uuid",
+    "title": "Complete Chapter 5 Exercises",
+    "isMandatory": true,
+    "isInternal": false,
+    "deadlineType": "FIXED",
+    "deadline": "2026-10-05T23:59:00.000Z",
+    "createdBy": { "id": "...", "name": "Trainer User", "email": "..." },
+    "taskBatches": [
+      { "taskId": "...", "batchId": "...", "batch": { "id": "...", "name": "Batch Alpha 2026" } }
+    ],
+    "submissions": [
+      { "id": "...", "taskId": "...", "studentId": "...", "progress": "NOT_STARTED" }
+    ],
+    "submissionCount": 13
+  }
+}
+```
+
+**Design decisions applied:**
+- Atomic: all batchIds valid or entire request fails
+- Mandatory tasks get bulk submissions, optional tasks get none
+- Students in multiple target batches get one row (deduplicated via `Set`)
+- `createdById` from JWT (`req.user.sub`), never from request body
+- Initial deadline logged in TaskDeadlineChange (old=NONE → new=whatever was chosen)
+- Scope-based auth: trainers must be BatchTrainer for every batchId; admin/any scope skips check
 
 ---
 
