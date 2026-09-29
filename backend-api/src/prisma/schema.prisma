@@ -51,6 +51,21 @@ enum NotificationType {
   EVENT_REMINDER
   INTERVENTION
   GENERAL
+  TASK_UPDATE
+}
+
+enum DeadlineType {
+  FIXED
+  TENTATIVE
+  TBD
+  NONE
+}
+
+enum TaskProgress {
+  NOT_STARTED
+  IN_PROGRESS
+  ALMOST_COMPLETED
+  COMPLETED
 }
 
 enum ProofStatus {
@@ -150,6 +165,11 @@ model User {
 
   auditLogs AuditLog[]
   sessions  Session[]
+
+  createdTasks           Task[]               @relation("TaskCreator")
+  taskSubmissions        TaskSubmission[]      @relation("TaskStudent")
+  gradedTaskSubmissions  TaskSubmission[]      @relation("TaskGrader")
+  taskDeadlineChanges    TaskDeadlineChange[]  @relation("TaskDeadlineChanger")
 }
 
 model Batch {
@@ -171,6 +191,7 @@ model Batch {
   trainers    BatchTrainer[]
   sessions    Session[]
   assessments Assessment[]
+  taskBatches TaskBatch[]
 }
 
 model BatchMember {
@@ -621,6 +642,96 @@ model PasswordResetToken {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+model Task {
+  id String @id @default(uuid())
+  @@map("tasks")
+
+  title       String
+  description String?
+
+  isMandatory Boolean @default(true)
+  isInternal  Boolean @default(false)
+
+  maxMarks Float?
+
+  deadlineType DeadlineType @default(NONE)
+  deadline     DateTime?
+  deadlineNote String?
+
+  closedAt DateTime?
+
+  createdById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdBy User @relation("TaskCreator", fields: [createdById], references: [id])
+
+  taskBatches      TaskBatch[]
+  deadlineChanges  TaskDeadlineChange[]
+  submissions      TaskSubmission[]
+}
+
+model TaskBatch {
+  taskId  String
+  batchId String
+  @@map("task_batches")
+
+  task  Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  batch Batch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, batchId])
+}
+
+model TaskDeadlineChange {
+  id String @id @default(uuid())
+  @@map("task_deadline_changes")
+
+  taskId String
+
+  oldDeadlineType DeadlineType
+  newDeadlineType DeadlineType
+
+  oldDeadline DateTime?
+  newDeadline DateTime?
+
+  reason String?
+
+  changedById String
+
+  createdAt DateTime @default(now())
+
+  task      Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  changedBy User @relation("TaskDeadlineChanger", fields: [changedById], references: [id])
+}
+
+model TaskSubmission {
+  id String @id @default(uuid())
+  @@map("task_submissions")
+
+  taskId    String
+  studentId String
+
+  progress TaskProgress @default(NOT_STARTED)
+
+  isInterested Boolean @default(false)
+
+  completedAt DateTime?
+  isLate      Boolean?
+
+  marksAwarded Float?
+  gradedById   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task    Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  student User  @relation("TaskStudent", fields: [studentId], references: [id])
+  gradedBy User? @relation("TaskGrader", fields: [gradedById], references: [id])
+
+  @@unique([taskId, studentId])
 }
 
 model AuditLog {

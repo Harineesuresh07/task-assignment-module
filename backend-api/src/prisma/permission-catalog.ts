@@ -146,6 +146,20 @@ export const PERMISSIONS: PermissionDef[] = [
   { code: 'proofs:approve:batch', description: "Approve/reject proofs for one's own batch" },
   { code: 'proofs:approve:any', description: 'Approve/reject any proof submission' },
 
+  // ---- Tasks ----
+  { code: 'tasks:create:batch', description: 'Create tasks for own batch' },
+  { code: 'tasks:create:any', description: 'Create tasks for any batch' },
+  { code: 'tasks:read:own', description: "Read tasks assigned to one's own batches (student view)" },
+  { code: 'tasks:read:batch', description: "Read tasks for one's own batch (trainer view)" },
+  { code: 'tasks:read:any', description: 'Read any task' },
+  { code: 'tasks:update:own', description: "Update one's own task progress / express interest" },
+  { code: 'tasks:update:batch', description: 'Edit tasks for own batch' },
+  { code: 'tasks:update:any', description: 'Edit any task' },
+  { code: 'tasks:delete:batch', description: 'Delete tasks for own batch' },
+  { code: 'tasks:delete:any', description: 'Delete any task' },
+  { code: 'tasks:grade:batch', description: "Grade internal tasks for one's own batch students" },
+  { code: 'tasks:grade:any', description: 'Grade any internal task' },
+
   // ---- Audit Log ----
   { code: 'audit_logs:read', description: 'Read the audit log' },
 ];
@@ -169,6 +183,8 @@ export const ROLE_PERMISSIONS: Record<RoleName, string[]> = {
     'event_registrations:read:own',
     'proofs:submit:self',
     'proofs:read:own',
+    'tasks:read:own',
+    'tasks:update:own',
   ],
 
   TRAINER: [
@@ -200,6 +216,11 @@ export const ROLE_PERMISSIONS: Record<RoleName, string[]> = {
     'events:read:any',
     'proofs:read:batch',
     'proofs:approve:batch',
+    'tasks:create:batch',
+    'tasks:read:batch',
+    'tasks:update:batch',
+    'tasks:delete:batch',
+    'tasks:grade:batch',
   ],
 
   FACULTY: [
@@ -217,6 +238,8 @@ export const ROLE_PERMISSIONS: Record<RoleName, string[]> = {
     'interventions:read:any',
     'notifications:read:own',
     'events:read:any',
+    'tasks:read:any',
+    'tasks:grade:any',
   ],
 
   MENTOR: [
@@ -263,6 +286,7 @@ export const ROLE_PERMISSIONS: Record<RoleName, string[]> = {
     'event_registrations:read:any',
     'proofs:read:any',
     'proofs:approve:any',
+    'tasks:read:any',
   ],
 
   ADMIN: [
@@ -303,6 +327,11 @@ export const ROLE_PERMISSIONS: Record<RoleName, string[]> = {
     'event_registrations:read:any',
     'proofs:read:any',
     'proofs:approve:any',
+    'tasks:create:any',
+    'tasks:read:any',
+    'tasks:update:any',
+    'tasks:delete:any',
+    'tasks:grade:any',
     'audit_logs:read',
   ],
 };
